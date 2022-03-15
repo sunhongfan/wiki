@@ -81,3 +81,112 @@ Overhead  Shared Object       Symbol
 4. 最后一列 `Symbol`: 是符号名，也就是函数名。当函数名未知时，用十六进制的地址来表示。
 
 - `perf record` 和 `perf report` record 提供了数据保存的功能, 而保存的数据可以使用 report 来查看,用于离线分析. 通过 -g 还可以开启调用关系采样.
+
+### CPU 占用率高，但是找不到占用进程
+
+在排查 CPU 占用率高的时候,还有可能出现一种情况,那就是 CPU 占用率很高, 可是通过工具却看不到占用 CPU 高的进程.
+
+top 信息可以看到 CPU 已经 90% 了, 但是最多的是 Docker, 也才 14% 加起来也没有使用那么多。
+
+```bash
+top - 18:06:21 up 1 day,  2:11,  2 users,  load average: 4.66, 2.02, 0.83
+Tasks: 248 total,   7 running, 242 sleeping,   0 stopped,   1 zombie
+%Cpu(s): 60.1 us, 25.5 sy,  0.0 ni,  8.1 id,  0.0 wa,  0.0 hi,  6.3 si,  0.0 st
+MiB Mem :   2957.5 total,    172.2 free,    480.3 used,   2305.0 buff/cache
+MiB Swap:   2048.0 total,   2046.7 free,      1.3 used.   2259.4 avail Mem
+
+    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND
+  66148 root      20   0  712848   8544   6312 S  14.3   0.3   0:18.72 containerd-shim
+  66207 systemd+  20   0   33132   3816   2392 S   9.6   0.1   0:13.32 nginx
+  75634 daemon    20   0  336692  16244   8572 S   7.6   0.5   0:08.50 php-fpm
+  75645 daemon    20   0  336692  16500   8828 S   6.6   0.5   0:07.46 php-fpm
+  75651 daemon    20   0  336692  16500   8828 S   6.6   0.5   0:07.45 php-fpm
+  75629 daemon    20   0  336692  16500   8828 S   6.3   0.5   0:08.46 php-fpm
+  75635 daemon    20   0  336692  16268   8596 S   6.3   0.5   0:08.22 php-fpm
+  54015 root      20   0 1605752  84496  53240 S   4.3   2.8   0:42.13 dockerd
+     30 root      20   0       0      0      0 S   3.3   0.0   0:21.50 ksoftirqd/3
+    821 root      20   0 1492764  43852  28924 S   0.7   1.4   5:10.69 containerd
+  66208 systemd+  20   0   33132   3804   2392 S   0.7   0.1   0:00.74 nginx
+ 278789 daemon    20   0    4288    744    672 S   0.0   0.0   0:00.00 sh
+ 278790 daemon    20   0    7280    824    740 S   0.0   0.0   0:00.00 stress
+ 278791 daemon    20   0    4288    792    716 S   0.0   0.0   0:00.00 sh
+ 278793 daemon    20   0    4288    740    668 S   0.0   0.0   0:00.00 sh
+ 278794 daemon    20   0    7280    880    800 S   0.0   0.0   0:00.00 stress
+ 278796 daemon    20   0    7280    868    784 R   0.0   0.0   0:00.00 stress
+ 278797 daemon    20   0    4288    756    684 S   0.0   0.0   0:00.00 sh
+ 278798 daemon    20   0    4288    764    692 S   0.0   0.0   0:00.00 sh
+ 278799 daemon    20   0    8180    100      0 R   0.0   0.0   0:00.00 stress
+ 278800 daemon    20   0    7280    880    800 S   0.0   0.0   0:00.00 stress
+ 278801 daemon    20   0    8180    812    524 R   0.0   0.0   0:00.00 stress
+```
+
+在观察运行任务队列: 就绪队列中有 7 个进程, 这个是因为我们使用 ab 模拟的 5 个并发对网站进行压力测试，加上一个 nginx 应该是 6 个任务, 任务数量差不多.
+
+但是通过观察发现, 相关 nginx 和 php 都处于 S 状态, 那到底是什么在运行呢. 可以发现是一些 sh 和 stress 进程在运行。
+
+通过 `pidstat -p 7280` 查看进程信息.却发现查不到, 然后通过 `ps -elf ｜ grep 7280` 发现没有这个进程, 这种情况无非 2 中情况,一种是进程不断重启,要么就是全新的进程, 也就是说这个进程也许在不断重启, 或者执行的任务时间比较短,结束时间比较快.
+
+通过 pstree 来查看异常进程的父进程, 发现就是容器中的 php 这个进程导致的.
+
+```bash
+# 由于进程一直重新生成 可能一次捕捉不到
+
+$ pstree  | grep -B 5 stress
+        |-containerd-shim-+-php-fpm-+-3*[php-fpm]
+        |                 |         `-2*[php-fpm---sh---stress]
+```
+
+通过查看容器中的工作目录,查找相关代码
+
+```bash
+# 拷贝源码到本地
+$ docker cp phpfpm:/app .
+
+$ grep stress -r app
+app/index.php:// fake I/O with stress (via write()/unlink()).
+app/index.php:$result = exec("/usr/local/bin/stress -t 1 -d 1 2>&1", $output, $status);
+
+# 再来看看 app/index.php 的源代码：
+$ cat app/index.php
+<?php
+// fake I/O with stress (via write()/unlink()).
+$result = exec("/usr/local/bin/stress -t 1 -d 1 2>&1", $output, $status);
+if (isset($_GET["verbose"]) && $_GET["verbose"]==1 && $status != 0) {
+  echo "Server internal error: ";
+  print_r($output);
+} else {
+  echo "It works!";
+}
+?>
+```
+
+可以看到，源码里对每个请求都会调用一个 stress 命令，模拟 I/O 压力。从注释上看，stress 会通过 write() 和 unlink() 对 I/O 进程进行压测，看来，这应该就是系统 CPU 使用率升高的根源了。不过，stress 模拟的是 I/O 压力，而之前在 top 的输出中看到的，却一直是用户 CPU 和系统 CPU 升高，并没见到 iowait 升高。这又是怎么回事呢？stress 到底是不是 CPU 使用率升高的原因呢？查看请求日志
+
+```bash
+$ curl 10.0.23.31:10000?verbose=1
+Server internal error: Array
+(
+    [0] => stress: info: [431261] dispatching hogs: 0 cpu, 0 io, 0 vm, 1 hdd
+    [1] => stress: FAIL: [431262] (563) mkstemp failed: Permission denied
+    [2] => stress: FAIL: [431261] (394) <-- worker 431262 returned error 1
+    [3] => stress: WARN: [431261] (396) now reaping child worker processes
+    [4] => stress: FAIL: [431261] (400) kill error: No such process
+    [5] => stress: FAIL: [431261] (451) failed run completed in 0s
+)
+```
+
+看错误消息 `mkstemp failed: Permission denied` ，以及` failed run completed in 0s`。原来 stress 命令并没有成功，它因为权限问题失败退出了。看来，我们发现了一个 PHP 调用外部 stress 命令的 bug：没有权限创建临时文件。
+
+从这里我们可以猜测，正是由于权限错误，大量的 stress 进程在启动时初始化失败，进而导致用户 CPU 使用率的升高。如何证实这个猜测, 在前面使用的工具中并未发现大量的 stress 进程, 这时候我们可以使用 perf 命令,
+
+```bash
+# 记录性能事件，等待大约 15 秒后按 Ctrl+C 退出
+$ perf record -g
+
+# 查看报告
+$ perf report
+```
+
+![stress_perf](../../static/images/stress_perf.png)
+
+可以看到是由于大量的 stress 调用 randon（）这个函数, 占用了大部分的时钟事件，由此可以确定是由于 stress 导致的, 只要修复权限问题，并减少或删除 stress 的调用，就可以减轻系统的 CPU 压力。
