@@ -9,6 +9,7 @@
     - [应用的cpu占用率高如何排查](docs/System_tuning/应用的cpu占用率高如何排查.md)
     - [不可中断进程和僵尸进程](docs/System_tuning/不可中断进程和僵尸进程.md)
     - [系统中断的理解](docs/System_tuning/系统的中断.md)
+    - [CPU 优化思路](docs/System_tuning/cpu优化思路.md)
 
 - Container
 
