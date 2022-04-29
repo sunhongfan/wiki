@@ -37,13 +37,13 @@ kubernetes 调用 docker 调用链如下:
 ```
 # 当我们在 Kubernetes 中创建一个 Pod 的时候，首先就是 kubelet 通过 CRI 接口调用 dockershim，请求创建一个容器，kubelet 可以视作一个简单的 CRI Client, 而 dockershim 就是接收请求的 Server，不过他们都是在 kubelet 内置的(将在后续版本移除)。dockershim 收到请求后, 转化成 Docker Daemon 能识别的请求, 发到 Docker Daemon 上请求创建一个容器，请求到了 Docker Daemon 后续就是 Docker 创建容器的流程了.
 
-+------------+           +---------+           +-------------+
-| dockershim |---gRPC--> | dockerd |---请求--> | containerd  |
-+------------+---        +---------+           +-------------+
++------------+       +---------+           +-------------+
+| dockershim |-----> | dockerd |---请求--> | containerd  |
++------------+--+    +---------+           +-------------+
                 |
                gRPC
 +------------+  |
-|  kubelet   |--|
+|  kubelet   |--+
 +------------+
 ```
 
