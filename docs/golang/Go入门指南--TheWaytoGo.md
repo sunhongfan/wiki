@@ -15,6 +15,9 @@
     - [字符与其他类型转换](#字符与其他类型转换)
   - [格式化说明符](#格式化说明符)
   - [unicode 包](#unicode-包)
+  - [时间与日期](#时间与日期)
+  - [指针](#指针)
+    - [理解 值拷贝 和 值传递](#理解-值拷贝-和-值传递)
 ## 基本结构和基本数据类型
 
 ### 包的概念
@@ -49,7 +52,7 @@ import (
     "runtime"
 )
 
-// go version info 
+// go version info
 var version string = runtime.version()
 
 func hello(){
@@ -63,12 +66,12 @@ func hello(){
 
 ```go
 // 导出变量
-package main 
+package main
 
 import "fmt"
 
 func main(){
-    fmt.println(my_func.version)    
+    fmt.println(my_func.version)
 }
 ```
 
@@ -125,7 +128,7 @@ const( // 声明常量组
 2. 预声明标识符 `iota` 用在常量声明中, 它是一种自增的枚举变量, 常用于初始化常量.
 
 ```go
-const ( 
+const (
 	red int = iota      // 0
 	orange              // 1
 	yellow              // 2
@@ -323,8 +326,8 @@ str1 += "world!"
     ```go
     // 判断字符串 s 是否以 Prefix 开头:
     strings.HasPerfix(s, prefix string) bool
-    
-    // 判断字符串 s 是否以 Prefix 结尾: 
+
+    // 判断字符串 s 是否以 Prefix 结尾:
     strings.HasSuffix(s, prefix string) bool
     ```
 2. 字符串包含关系
@@ -362,7 +365,7 @@ str1 += "world!"
     ```go
     // ToLower 将字符串中的 Unicode 字符串全部转换为相应的小写字符串
     strings.ToLower(s) string
-    
+
     // ToUpper 将字符串中的 Unicode 字符串全部转换为相应的小写字符串
     strings.ToUpper(s) string
     ```
@@ -370,7 +373,7 @@ str1 += "world!"
     ```go
     // 删除字符串 s 中的开头和结尾的空白符号
     strings.TrimSpace(s)
-    
+
     // 删除字符串 s ,以 cut 开头或结尾的字符
     strings.Trim(s, "cut")
 
@@ -400,21 +403,21 @@ int 转换为字符串总是成功的:
 // 数字 --> 字符串
 
 // 返回数字 i 所表示的字符串类型的十进制数。
-strconv.Itoa(i int) string  
+strconv.Itoa(i int) string
 
 // 将 64 位浮点型的数字转换为字符串，其中 fmt 表示格式（其值可以是 ‘b’、‘e’、‘f’ 或 ‘g’）
 // prec 表示精度，bitSize 则使用 32 表示 float32，用 64 表示 float64。
-strconv.FormatFloat(f float64, fmt byte, prec int, bitSize int) string  
+strconv.FormatFloat(f float64, fmt byte, prec int, bitSize int) string
 ```
 
 将字符串转换为其他类型有可能会失败，因此返回值多了 err, 因此需要 2 个参数来接收返回值,一个是转后成功后的结果, 第二个是可能出现的错误。
 
 ```go
 // 将字符串转换为 int 型。
-strconv.Atoi(s string) (i int, err error) 
+strconv.Atoi(s string) (i int, err error)
 
 // 将字符串转换为 float64 型。
-strconv.ParseFloat(s string, bitSize int) (f float64, err error) 
+strconv.ParseFloat(s string, bitSize int) (f float64, err error)
 ```
 
 ### 格式化说明符
@@ -433,7 +436,7 @@ strconv.ParseFloat(s string, bitSize int) (f float64, err error)
 10. `%c` 打印字符
 11. `%p` 打印地址
 
-### unicode 包 
+### unicode 包
 
 包 unicode 包含了一些针对测试字符的非常有用的函数（其中 ch 代表字符）：
 
@@ -443,3 +446,110 @@ strconv.ParseFloat(s string, bitSize int) (f float64, err error)
 判断是否为数字：         unicode.IsDigit(ch)
 判断是否为空白符号：      unicode.IsSpace(ch)
 ```
+
+### 时间与日期
+
+1. 获取当前时间
+    ```go
+   t = time.Time.Now()
+   // 2022-05-07 17:55:32.925537 +0800 CST m=+0.000084340
+    ```
+2. 获取当前时间戳
+   ```go
+   t = time.Time().Now()
+   fmt.Println(t.Unix())
+   ```
+3. 格式化时间
+   ```go
+   // Format("2006-01-02 15:04:05") 必须是这个，据说是 Go 的诞生时间
+   fmt.Println(time.Now().Format("2006-01-02 15:04:05"))
+    ```
+4. 时间戳 --> 时间
+   ```go
+    tunix := time.Now().Unix()
+	fmt.Println(tunix)
+
+	tdata := time.Unix(tunix, 0)
+	fmt.Println(tdata.Format("2006-01-02 15:04:05"))
+   ```
+
+### 指针
+
+一个指针变量指向一个值的内存地址,和变量一样,在使用之前需要声明指针.
+
+1. `&<var>`: 表示取变量的地址, 取址符
+2. `*<var>`: 表示取指针的原始值
+3. `var ptr *int`: 表示声明一个 int 的指针类型叫 ptr
+
+> 指针不支持获取常量的地址, 因为常量是不可修改的。
+   
+```go
+func main() {
+	var i1 = 5
+	fmt.Printf("变量值为: %d\n变量的地址为: %p", i1, &i1)
+}
+
+// 变量值为: 5
+// 变量的地址为: 0xc0000b2008
+```
+
+通过 & 取变量的地址,这个值可以存储在指针这个数据类型中, 指针存放其变量的内存地址，可以通过 `*var` 来获取其内存地址对应的真实值。
+
+```go
+func main() {
+	var i1 = 5
+	var ptri1 *int = &i1
+	fmt.Printf("i1的内存地址是: %p\n", &i1)
+	fmt.Printf("指针 ptri1 的内存地址是: %p\n值是: %v\n指针对应的值是: %d", &ptri1, ptri1, *ptri1)
+}
+// i1的内存地址是: 0xc0000b2008
+// 指针 ptri1 的内存地址是: 0xc0000ac018
+// 值是: 0xc0000b2008
+// 指针对应的值是: 5
+```
+
+#### 理解 值拷贝 和 值传递
+
+1. 值拷贝(值类型): 开辟了新的内存空间, 存放原始值的副本, 副本与原始值互不干扰
+
+    ```go
+    func increase(n int) {
+        n++
+        fmt.Printf("increase函数中\nn 的值: %d\nn的内存地址:%p\n", n, &n)
+        fmt.Println("-----------")
+    }
+    func main() {
+        var num = 10
+        increase(num)
+        fmt.Printf("调用 increase 之后\nnum的值: %d\nnum 的内存地址: %p", num, &num)
+    }
+    // increase函数中
+    // n 的值: 11
+    // n的内存地址:0xc00001a0d8
+    // -----------
+    // 调用 increase 之后
+    // num的值: 10
+    // num 的内存地址: 0xc00001a0d0
+    ```
+
+2. 值传递(引用类型): 开辟了新的内存空间, 存放原始值的内存地址, 通过内存地址访问到原值，并直接影响原始值
+    ```go
+    func increase(n *int) {
+        *n++
+        fmt.Printf("increase函数中:\nn 的值: %p\nn的内存地址:%p\nn的原始值: %d\n", n, &n, *n)
+        fmt.Println("-----------")
+    }
+    func main() {
+        var num = 10
+        increase(&num)
+        fmt.Printf("调用 increase 之后\nnum的值: %d\nnum 的内存地址: %p", num, &num)
+    }
+    // increase函数中:
+    // n 的值: 0xc0000b2008
+    // n的内存地址:0xc0000ac018
+    // n的原始值: 11
+    // -----------
+    // 调用 increase 之后
+    // num的值: 11
+    // num 的内存地址: 0xc0000b2008
+    ```
