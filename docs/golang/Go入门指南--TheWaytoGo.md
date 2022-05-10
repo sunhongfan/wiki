@@ -18,6 +18,10 @@
   - [时间与日期](#时间与日期)
   - [指针](#指针)
     - [理解 值拷贝 和 值传递](#理解-值拷贝-和-值传递)
+- [控制结构](#控制结构)
+  - [if-else](#if-else)
+  - [switch-case](#switch-case)
+  - [for](#for)
 ## 基本结构和基本数据类型
 
 ### 包的概念
@@ -553,3 +557,89 @@ func main() {
     // num的值: 11
     // num 的内存地址: 0xc0000b2008
     ```
+
+## 控制结构
+
+### if-else
+
+if 是用于测试某个条件(布尔型或逻辑性)的语句, 如果条件成立或者不成立,对应执行相应的代码块中的内容。
+
+```go
+if condition {
+    // do something
+} else if condition {
+    // do something
+} else {
+    // do something
+}
+```
+
+### switch-case
+
+可以直接替换多分支的 if 语句, 每个 `case` 结尾会自动加上 `break` 如果需要继续匹配下一项可以加入 `fallthrough`
+
+```go
+func main() {
+	var age uint8
+	fmt.Print("请输入年龄: ")
+	fmt.Scanln(&age)
+
+	switch {
+	case age >= 18:
+		fmt.Println("成年")
+	default:
+		fmt.Println("未成年")
+	}
+}
+```
+> default 可以省略.
+
+还可以进行值匹配
+
+```go
+var := 10
+switch var1 {
+case 10:
+    // do something
+case 20,30,50:
+    // do something
+default:
+    // do something
+}
+```
+
+### for
+
+在 Go 语言中只有 `For` 循环结构可以重复执行某些语句. 
+
+1. 基于计数器的迭代, 基本形式为 `for 初始化语句；条件语句；修饰语句 {}`
+    ```go
+    func main() {
+        for i := 0; i < 5; i++ {
+	        fmt.Printf("This is the %d iteration\n", i)
+	    }
+    }
+   ```
+2. 无限循环
+    ```go
+    for {
+        // do something
+    }
+    ```
+3. 基于条件判断的迭代
+    ```go
+    for i >= 0{
+        i--
+        fmt.Printf("The variable i is now: %d\n", i)
+    }
+    ```
+4. for-range 结构, 可以迭代任何一个集合(数组，map)
+    ```go
+    for index, value := range coll {
+        // do something
+    }
+    ```
+    > value 始终为集合中对应索引的值拷贝，对它所做的任何修改都不会影响到集合中原有的值, 如果 value 为指针，则会产生指针的拷贝，依旧可以修改集合中的原值, 如果不需要 range 返回的索引可以使用 `_` 忽略
+
+5. break: 用于退出循环
+6. continue: 用于跳过本次循环
