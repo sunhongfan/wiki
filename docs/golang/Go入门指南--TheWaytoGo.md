@@ -2,7 +2,6 @@
   - [包的概念](#包的概念)
     - [可见性规则](#可见性规则)
     - [包的别名](#包的别名)
-    - [函数](#函数)
   - [常量与变量](#常量与变量)
     - [变量](#变量)
     - [注意事项](#注意事项)
@@ -22,6 +21,12 @@
   - [if-else](#if-else)
   - [switch-case](#switch-case)
   - [for](#for)
+- [函数](#函数)
+  - [参数和返回值](#参数和返回值)
+  - [函数也是一种数据类型](#函数也是一种数据类型)
+  - [匿名函数](#匿名函数)
+  - [defer](#defer)
+  - [init 函数](#init-函数)
 ## 基本结构和基本数据类型
 
 ### 包的概念
@@ -75,7 +80,7 @@ package main
 import "fmt"
 
 func main(){
-    fmt.println(my_func.version)
+    fmt.println(my_func.Version)
 }
 ```
 
@@ -86,14 +91,6 @@ import (
     fm "fmt" // alias
 )
 ```
-
-#### 函数
-
-函数以使用 `func` 关键字, 如: `func functionname() (return list){}`
-
-可以在 () 中写入 0 个或多个函数的参数, 使用 `,` 分隔, 每个参数的名称后面必须紧紧跟着该参数的类型.
-
-**`mian()` 函数时程序必须所包含的, 通过时在程序执行后第一个执行的函数, 如果有 `init()` 函数则会先执行该函数**
 
 ### 常量与变量
 
@@ -643,3 +640,257 @@ default:
 
 5. break: 用于退出循环
 6. continue: 用于跳过本次循环
+
+### label 与 goto
+
+```go
+func main() {
+	for {
+		for j := 0; j < 10; j++ {
+			fmt.Print("+ ")
+			if j == 8 {
+				break      // 此处 break 是跳出第一个 for, 因此这还是一个死循环.
+			}
+		}
+		fmt.Println("")
+	}
+}
+```
+
+可以通过指定 `lable`, 来使 `break 或 continue` 跳转到 lable 处.
+
+```go
+func main() {
+outside: 
+	for {
+		for j := 0; j < 10; j++ {
+			fmt.Print("+ ")
+			if j == 8 {
+				break outside    // 指定 break 来跳转到 outsite 处, 这样就可跳出死循环
+			}
+		}
+		fmt.Println("")
+	}
+}
+```
+
+> goto 不建议使用,用法就使 goto lablename, 由于不推荐使用, 这里不做 demo
+
+## 函数
+
+函数以使用 `func` 关键字, 如: `func functionname() (return list){}`
+
+可以在 () 中写入 0 个或多个函数的参数, 使用 `,` 分隔, 每个参数的名称后面必须紧紧跟着该参数的类型.
+
+**`mian()` 函数时程序必须所包含的, 通过时在程序执行后第一个执行的函数, 如果有 `init()` 函数则会先执行该函数**
+
+### 参数和返回值
+
+1. 形参: 形式参数, 在定义函数中使用的参数.
+2. 实参: 调用函数时给函数传递的参数
+
+函数可以接受 0-n 个参数, 形参类型相同时, 可以简写: `(n1,n2 int)`
+
+不确定形参个数时可以用`...TYPE` 来生成形参切片
+
+```go
+func demo(n1, n2 int) (int, int) {
+    num1 = n1+n2
+	num2 = n1-n2
+	
+    return num1, num2
+}
+
+func main() {
+	n1, n2 := demo(1, 2)
+	println(n1, n2)
+}
+
+// golang 支持返回值命名, 上述可以改写为:
+func demo(n1, n2 int) (num1, num2 int) {
+	num1 = n1+n2
+	num2 = n1-n2
+	return
+}
+```
+
+### 函数也是一种数据类型
+
+1. 函数不变量，但它也存在于内存中，存在内存地址。
+2. 函数名称本质上是指向其函数的内存地址的指针常量
+
+```go
+....
+func main() {
+	fmt.Printf("%v, %T", demo, demo)
+}
+
+// 0x108ac00, func(int, int) (int, int)
+```
+
+### 匿名函数
+
+匿名函数也就是没有名字的函数, 因为函数也是一种数据类型所以可以定义为变量.
+
+1. demo
+    ```go
+    func main() {
+        f := func() {
+            fmt.Println("hello world")
+        }
+        f()
+    }
+    ```
+
+2. 带参数
+    ```go
+    func main() {
+        f := func(args string) {
+            fmt.Println(args)
+        }
+        f("hello world") //hello world
+        
+        //或
+        (func(args string) {
+            fmt.Println(args)
+        })("hello world") //hello world
+        
+        //或
+        func(args string) {
+            fmt.Println(args)
+        }("hello world") //hello world
+    }
+    ```
+
+3. 带返回值
+    ```go
+    func main() {
+	    f := func() string {
+		    return "hello world"
+	    }
+	    a := f()
+	    fmt.Println(a) //hello world
+    }
+    ```
+
+### defer
+
+1. 延迟执行的函数, 会被压入栈中, return执行之后, 按照先进后出的顺序调用.
+2. 延迟执行的函数其参数会立即求值.
+
+```go
+
+func deferUtil() func(int) int {
+	i := 0
+	return func(n int) int {
+		fmt.Printf("本次调用接收到的 n=%v\n", n)
+		i++
+		fmt.Printf("匿名工具函数被第 %v 次调用\n", i)
+		fmt.Println("------------------------")
+		return i
+	}
+}
+
+func defer_demo() {
+	f := deferUtil()
+
+	// 1. 正常调用 f
+	// f(1)
+	// 本次调用接收到的 n=1
+	// 匿名工具函数被第 1 次调用
+	// ------------------------
+
+	// 2. 使用 defer
+	// defer f(1)
+	// f(2)
+	// 本次调用接收到的 n=2
+	// 匿名工具函数被第 1 次调用
+	// ------------------------
+	// 本次调用接收到的 n=1
+	// 匿名工具函数被第 2 次调用
+	// ------------------------
+
+	// 3. defer 的参数是立即求值的。
+	defer f(f(1))
+	f(2)
+	// 本次调用接收到的 n=1
+	// 匿名工具函数被第 1 次调用
+	// ------------------------
+	// 本次调用接收到的 n=2
+	// 匿名工具函数被第 2 次调用
+	// ------------------------
+	// 本次调用接收到的 n=1
+	// 匿名工具函数被第 3 次调用
+	// ------------------------
+}
+
+func main() {
+	defer_demo()
+}
+```
+
+### init 函数
+
+init 函数会优先执行, 并且每个包都可以设置多个 init 函数。一般用于初始化操作, 如数据库的连接, 配置文件的读取.
+
+**执行顺序:**
+
+1. 被依赖包的全局变量
+2. 被依赖包的 `init` 函数
+3. `mian` 包的全局变量
+4. `mian` 包的 `init` 函数
+5. `mian` 函数 
+
+```go
+// my_func/init_demo.go
+package my_func
+
+import "fmt"
+
+// 1. 先初始化此变量
+var i = 0
+
+var F = func(str string) int {
+	fmt.Printf("本次被 %v 调用\n", str)
+	i++
+	fmt.Printf("匿名工具被第 %v 次调用\n", i)
+	fmt.Println("-----------------------")
+	return i
+}
+
+// mian.go
+package main
+
+import (
+	"fmt"
+	"sunhf_learn/my_func"
+)
+
+// 2. 初始化 mian 包全局变量
+var A = my_func.F("main.A")
+
+// 3. 执行 init 函数
+func init() {
+	my_func.F("main.init2")
+}
+func init() {
+	my_func.F("main.init2")
+}
+
+// 4. 执行 main 函数
+func main() {
+	fmt.Println("hello, world")
+}
+
+// 结果
+// 本次被 main.A 调用
+// 匿名工具被第 1 次调用
+// -----------------------
+// 本次被 main.init2 调用
+// 匿名工具被第 2 次调用
+// -----------------------
+// 本次被 main.init2 调用
+// 匿名工具被第 3 次调用
+// -----------------------
+// hello, world
+```
