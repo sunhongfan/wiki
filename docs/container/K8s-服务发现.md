@@ -182,7 +182,50 @@ spec:
 
 采用 [kubernetes-ingress](https://kubernetes.github.io/ingress-nginx/deploy/) 类似实现的 ingress 控制器还有 `Nginx-ingress` 分为开源版和闭源版
 
+参考: [NGINX Ingress Controller](https://kubernetes.github.io/ingress-nginx/deploy/baremetal/#over-a-nodeport-service)
+
+部署模式采用 `ds` + `hostNetwork` 模式部署:
+
 ```yaml
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/instance: ingress-nginx
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+    app.kubernetes.io/version: 1.2.0
+  name: ingress-nginx-controller
+  namespace: ingress-nginx
+spec:
+  minReadySeconds: 0
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: controller
+      app.kubernetes.io/instance: ingress-nginx
+      app.kubernetes.io/name: ingress-nginx
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: controller
+        app.kubernetes.io/instance: ingress-nginx
+        app.kubernetes.io/name: ingress-nginx
+    spec:
+      dnsPolicy: ClusterFirst
+      hostNetwork: true
+      nodeSelector:
+        isIngress: "true"
+      containers:
+        ...
+        ...
+```
+
+Nodeport 模式:
+
+```yaml
+# 主要修改 ingress-nginx 的 service 服务为 NodePort 模式
 apiVersion: v1
 kind: Service
 metadata:
@@ -216,9 +259,29 @@ spec:
   type: NodePort
 ```
 
-> 把 `ingress service` 端口进行固定, 80:30080, 443:30443
+> 把 `ingress service` 端口进行固定, 81:30080, 443:30443
 
-> 并修改externalTrafficPolicy: Local 为 `externalTrafficPolicy: Cluster`, 否则会出现 ingress 只能访问对应启动的 node
+> 并修改externalTrafficPolicy: Local 为 `externalTrafficPolicy: Cluster`, 否则会出现 ingress 只能访问对应节点的 Pod.
+
+设置默认 IngressClass:
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: IngressClass
+metadata:
+  labels:
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/instance: ingress-nginx
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+    app.kubernetes.io/version: 1.2.0
+  name: nginx
+  # 新增字段
+  annotations:
+    ingressclass.kubernetes.io/is-default-class: "true"
+spec:
+  controller: k8s.io/ingress-nginx
+```
 
 使用 `kubectl get all -n ingress-nginx` 查看 ingress 命名空间所有资源.
 
